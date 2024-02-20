@@ -1,7 +1,248 @@
-<html>
-	<head>
-	</head>
-	<body>
-		Homework 1 index.html here
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+	<style>
+		body {
+			padding: 100px;
+			width: 1000px;
+			margin: auto;
+			text-align: left;
+			font-weight: 300;
+			font-family: 'Open Sans', sans-serif;
+			color: #121212;
+		}
+		h1, h2, h3, h4 {
+			font-family: 'Source Sans Pro', sans-serif;
+		}
+	</style>
+	<title>CS 184/284A Rasterizer</title>
+	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+	<link href="https://fonts.googleapis.com/css?family=Open+Sans|Source+Sans+Pro" rel="stylesheet">
+</head>
+
+
+<body>
+
+<h1 align="middle">CS 184/284A: Computer Graphics and Imaging, Spring 2024</h1>
+<h1 align="middle">Homework 1: Rasterizer</h1>
+<h2 align="middle">Cody Garcia</h2>
+
+<br><br>
+
+<div>
+
+	<h2 align="middle">Overview</h2>
+	<p>
+		In this homework assignment, I implemented rasterizing and supersampling triangles, transforming points on a grid using translation, rotating, and scaling matrices, and calculating barycentric points and using them to get the best estimate when applying textures. This homework assignment was enjoyable to struggle and work through, and ultimately gave me a better understanding of using barycentric coordinates, mipmapping, and using textures overall. Mostly, how to rasterize a triangle, supersample it, and transformations were pretty easy to comprehend from just lecture and past linear algebra classes. However, although I thought I understood the lectures, applying textures through mipmapping and using barycentric coordinates went over my head for how important they were and how interesting it was to implement the concepts in C++. For example, calculating barycentric coordinates was easy and obvious to do in Task 4. However, I don’t think I truly understood the importance of and how versatile barycentric coordinates are until I had to use them in Task 5. In Task 4, I simply copied the formula from the lecture slides, but in Task 5, I took more into understanding the use of barycentric coordinates because I had to use them for color this time instead of just points.
+	</p>
+
+	<h2 align="middle">Section I: Rasterization</h2>
+
+	<h3 align="middle">Part 1: Rasterizing single-color triangles</h3>
+
+	<p>
+		To rasterize a triangle given 3 corner points, you use those 3 points to identify which pixels should lie within that triangle. We did this by looking at the center of each pixel within the X and Y max/min of the 3 points. Looking at each center, we devised if it was inside the triangle by comparing it to all 3 vectors of the triangle. If the point passed all 3 tests, then it was within the triangle, and therefore, the corresponding pixel is part of the triangle. This algorithm is no worse than one that checks each sample within the bounding box of the triangle because that is what it is doing.
+	</p>
+
+	<div align="middle">
+		<table style="width=100%">
+			<tr>
+				<td>
+					<img src="Task1Writeup.png" align="middle" width="1000px"/>
+					<figcaption align="middle">
+						png screenshot of basic/test4.svg
+					</figcaption>
+				</td>
+				<!--      <td>-->
+				<!--        <img src="images/image2.png" align="middle" width="400px"/>-->
+				<!--        <figcaption align="middle">Caption goes here.</figcaption>-->
+				<!--      </td>-->
+				<!--    </tr>-->
+				<!--    <br>-->
+				<!--    <tr>-->
+				<!--      <td>-->
+				<!--        <img src="images/image3.png" align="middle" width="400px"/>-->
+				<!--        <figcaption align="middle">Caption goes here.</figcaption>-->
+				<!--      </td>-->
+				<!--      <td>-->
+				<!--        <img src="images/image4.png" align="middle" width="400px"/>-->
+				<!--        <figcaption align="middle">Caption goes here.</figcaption>-->
+				<!--      </td>-->
+			</tr>
+		</table>
+	</div>
+
+
+	<h3 align="middle">Part 2: Antialiasing triangles</h3>
+
+	<p>
+		After discussing it with some of the TA’s in office hours and homework party, my supersampling algorithm is a bit different from the common approach. I took my code from Task 1 and practically did everything a second time in the new supersampled size. Basically my goal was to keep all the values within an original pixel together in the sample_buffer because that was easier for me to visualize. I took in the original pixel that Task 1 would give me, and then look through all its subsamples and place them sequentially in the sample_buffer before moving on to the next pixel. For example, this would mean in a 3x3 supersample, indexes 0-8 of the sample_buffer would all be the values for the first original pixel. To implement this, I had to modify my fill_pixel function to, instead of taking in an original x and original y value, to take the actual x and y components as one input and the subsampled coordinates of x and y as another input. Supersampling is useful because it allows us to take estimated rasterized triangles with more precision as the values are now on a spectrum rather than having to be a clear yes or no. I used supersampling to antialias my triangles by allowing the pixels to be filled by an average of colors rather than choosing just the most predominant or color in the right spot. In overlapping triangles cases, although the color is more faded, at least now both triangles are represented in the color chosen to fill the pixel.
+	</p>
+
+	<div align="middle">
+		<table style="width=100%">
+			<tr>
+				<td>
+					<img src="Task2Writeup1.png" align="middle" width="300px"/>
+					<figcaption align="middle">
+						png screenshot of basic/test4.svg supersample 1
+					</figcaption>
+				</td>
+				<td>
+					<img src="Task2Writeup2.png" align="middle" width="300px"/>
+					<figcaption align="middle">
+						png screenshot of basic/test4.svg supersample 4
+					</figcaption>
+				</td>
+				<td>
+					<img src="Task2Writeup3.png" align="middle" width="300px"/>
+					<figcaption align="middle">
+						png screenshot of basic/test4.svg supersample 16
+					</figcaption>
+				</td>
+			</tr>
+		</table>
+	</div>
+
+	<p>
+		These results are observed because as you increase the supersample rate, the blurrier some points get, but at the same time, the more accurate it gets compared to the original. As you can see, the 16 supersample is connected and looks more like a corner of a triangle than the 1 supersample.
+	</p>
+
+	<h3 align="middle">Part 3: Transforms</h3>
+
+	<div align="middle">
+		<table style="width=100%">
+			<tr>
+				<td>
+					<img src="Task3Writeup.png" align="middle" width="1000px"/>
+					<figcaption align="middle">
+						png screenshot of transforms/my_robot.svg
+					</figcaption>
+				</td>
+			</tr>
+		</table>
+	</div>
+
+	<p>
+		Nah my robot isn't waving. It's doing the wave.
+	</p>
+
+	<h2 align="middle">Section II: Sampling</h2>
+
+	<h3 align="middle">Part 4: Barycentric coordinates</h3>
+
+	<p>
+		Barycentric coordinates are coordinates that have another parameter that describes how detailed it is. For this example, in this 2D plane, these barycentric coordinates have a third parameter that says what color it should be. This color is based on the pixel’s relative position and distance from the three corners. In this example, each corner has a barycentric parameter that has the color red, green, or blue. For the rest of the triangle besides the corners, it will have a color that is proportional to its distance from each corner of the triangle. For example, the absolute center of the triangle would have a color that is ⅓ green, ⅓ red, and ⅓ blue. Along the bottom edge of the triangle, there will be no green representation, only red and blue.
+	</p>
+
+	<div align="middle">
+		<table style="width=100%">
+			<tr>
+				<td>
+					<img src="Task4Writeup1.png" align="middle" width="200px"/>
+					<figcaption align="middle">
+						png screenshot of barycentric example
+					</figcaption>
+				</td>
+				<td>
+					<img src="Task4Writeup2.png" align="middle" width="400px"/>
+					<figcaption align="middle">
+						png screenshot of basic/test7.svg
+					</figcaption>
+				</td>
+			</tr>
+		</table>
+	</div>
+
+	<h3 align="middle">Part 5: "Pixel sampling" for texture mapping</h3>
+
+	<p>
+		Pixel sampling is very similar to the supersampling of Task 2, but pixel sampling considers the barycentric coordinates of the point. In comparison, supersampling looks at the pixels equally while pixel sampling looks at the pixels in relation to a point. In pixel sampling, you consider the 4 pixels closest to a point. In nearest pixel sampling, to represent the 4 pixels’ colors as one, you would use the pixel closest to the point. In bilinear sampling, you would use barycentric coordinates to use the proportional percentage of all 4 colors by using the distance they are to the original point. This was implemented by getting the barycentric coordinates between the U values first, then they V values, then lasting combining them.
+	</p>
+
+	<div align="middle">
+		<table style="width=100%">
+			<tr>
+				<td>
+					<img src="Task5Writeup1.png" align="middle" width=400px"/>
+					<figcaption align="middle">
+						png screenshot of textmap/test2.svg nearest 1 supersample
+					</figcaption>
+				</td>
+				<td>
+					<img src="Task5Writeup2.png" align="middle" width="400px"/>
+					<figcaption align="middle">
+						png screenshot of textmap/test2.svg bilinear 1 supersample
+					</figcaption>
+				</td>
+			</tr>
+			<br>
+			<tr>
+				<td>
+					<img src="Task5Writeup3.png" align="middle" width="400px"/>
+					<figcaption align="middle">
+						png screenshot of textmap/test2.svg nearest 16 supersample
+					</figcaption>
+				</td>
+				<td>
+					<img src="Task5Writeup4.png" align="middle" width="400px"/>
+					<figcaption align="middle">
+						png screenshot of textmap/test2.svg bilinear 16 supersample
+					</figcaption>
+				</td>
+			</tr>
+		</table>
+	</div>
+
+	<p>
+		As you can see, the textures on the left (nearest) are clearer than the textures on the right (bilinear), but not as accurate. It is very clear in the 1 supersample versions, as in the nearest texture, the lines do not connect. However, as you supersample, that no longer becomes a problem and now bilinear is just blurier.
+	</p>
+
+
+	<h3 align="middle">Part 6: "Level sampling" with mipmaps for texture mapping</h3>
+
+	<p>
+		Level sampling involves working with a lower-resolution grid so the texture doesn’t map too choppy when the texture is far away. In essence, it is another technique to antialias the sample. I implemented level sampling by figuring out which level to use by either using the closest one that comes out of the max level formula or getting a barycentric-based level average. For pixel sampling and level sampling have a tradeoff of taking up more memory because you need to either look at the other levels or other pixels. Supersampling doesn’t necessarily have this problem because after you supersample, you can free up the space used for supersampled pixels back to the original pixel size.
+	</p>
+
+	<div align="middle">
+		<table style="width=100%">
+			<tr>
+				<td>
+					<img src="Task6Writeup1.png" align="middle" width=400px"/>
+					<figcaption align="middle">
+						zero level nearest
+					</figcaption>
+				</td>
+				<td>
+					<img src="Task6Writeup2.png" align="middle" width="400px"/>
+					<figcaption align="middle">
+						zero level bilinear
+					</figcaption>
+				</td>
+			</tr>
+			<br>
+			<tr>
+				<td>
+					<img src="images/Task6Writeup3.png" align="middle" width="400px"/>
+					<figcaption align="middle">
+						nearest level nearest
+					</figcaption>
+				</td>
+				<td>
+					<img src="images/Task6Writeup4.png" align="middle" width="400px"/>
+					<figcaption align="middle">
+						nearest level bilinear
+					</figcaption>
+				</td>
+			</tr>
+		</table>
+	</div>
+
+	<h2 align="middle">Section III: Art Competition</h2>
+	<p>If you are not participating in the optional art competition, don't worry about this section!</p>
+
+	<h3 align="middle">Part 7: Draw something interesting!</h3>
+
 	</body>
 </html>
